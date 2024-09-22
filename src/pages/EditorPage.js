@@ -4,12 +4,8 @@ import ACTIONS from '../Actions';
 import Client from '../components/Client';
 import Editor from '../components/Editor';
 import { initSocket } from '../socket';
-import {
-    useLocation,
-    useNavigate,
-    Navigate,
-    useParams,
-} from 'react-router-dom';
+import { useLocation, useNavigate, Navigate, useParams } from 'react-router-dom';
+import axios from 'axios';
 
 const EditorPage = () => {
     const socketRef = useRef(null);
@@ -18,6 +14,7 @@ const EditorPage = () => {
     const { roomId } = useParams();
     const reactNavigator = useNavigate();
     const [clients, setClients] = useState([]);
+    const [output, setOutput] = useState(''); 
 
     useEffect(() => {
         const init = async () => {
@@ -36,7 +33,6 @@ const EditorPage = () => {
                 username: location.state?.username,
             });
 
-            // Listening for joined event
             socketRef.current.on(
                 ACTIONS.JOINED,
                 ({ clients, username, socketId }) => {
@@ -52,7 +48,6 @@ const EditorPage = () => {
                 }
             );
 
-            // Listening for disconnected
             socketRef.current.on(
                 ACTIONS.DISCONNECTED,
                 ({ socketId, username }) => {
@@ -87,6 +82,22 @@ const EditorPage = () => {
         reactNavigator('/');
     }
 
+    const runCode = async () => {
+        const code = codeRef.current;
+        if (!code) {
+            toast.error('No code to run');
+            return;
+        }
+        try {
+            
+            const response = await axios.post('/api/run-code', { code });
+            setOutput(response.data.output); 
+        } catch (error) {
+            toast.error('Error running the code');
+            console.error(error);
+        }
+    };
+
     if (!location.state) {
         return <Navigate to="/" />;
     }
@@ -96,19 +107,12 @@ const EditorPage = () => {
             <div className="aside">
                 <div className="asideInner">
                     <div className="logo">
-                        <img
-                            className="logoImage"
-                            src="/code-sync.png"
-                            alt="logo"
-                        />
+                        <img className="logoImage" src="/code-sync.png" alt="logo" />
                     </div>
                     <h3>Connected</h3>
                     <div className="clientsList">
                         {clients.map((client) => (
-                            <Client
-                                key={client.socketId}
-                                username={client.username}
-                            />
+                            <Client key={client.socketId} username={client.username} />
                         ))}
                     </div>
                 </div>
@@ -118,15 +122,27 @@ const EditorPage = () => {
                 <button className="btn leaveBtn" onClick={leaveRoom}>
                     Leave
                 </button>
+                <button className="btn runBtn" onClick={runCode}>
+                        Run Code
+                    </button>
             </div>
-            <div className="editorWrap">
-                <Editor
-                    socketRef={socketRef}
-                    roomId={roomId}
-                    onCodeChange={(code) => {
-                        codeRef.current = code;
-                    }}
-                />
+
+           
+            <div className="editorOutputWrap">
+                <div className="editorWrap">
+                    <Editor
+                        socketRef={socketRef}
+                        roomId={roomId}
+                        onCodeChange={(code) => {
+                            codeRef.current = code;
+                        }}
+                    />
+                </div>
+
+                <div className="outputWrap">
+                    <h4>Output:</h4>
+                    <pre>{output || 'No output yet'}</pre>
+                </div>
             </div>
         </div>
     );
